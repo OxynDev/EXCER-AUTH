@@ -1,4 +1,4 @@
-# EXCER-AUTH
+# EXCER-AUTH [NOT DONE]
 
 EXCER-AUTH is a Python library that provides user authorization functionalities. It is a self-hosted API that offers a range of features, including checking for a unique hardware identifier (HWID) and setting a limit on the number of devices that can use a single authorization key.
 
