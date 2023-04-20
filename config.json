@@ -1,3 +1,9 @@
 {
-    "secret": "UwU3Api1Passw0rd$=|/523dcC2s342D23hj42Xa"
+    "secret": "UwU3Api1Passw0rd$=|/523dcC2s342D23hj42Xa",
+    "bot_config": {
+        "token": "",
+        "prefix":"/",
+        "server_id":1095359982872043642,
+        "admin_role":1095379600755933214
+    }
 }

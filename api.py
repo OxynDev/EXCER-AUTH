@@ -39,16 +39,16 @@ class Api:
         try:
           decrypted_data = json.loads(str(self.encryption.decrypt(request.json['data'])))
         except:
-          return self.encryption.encrypt("UwU UwU UwU UwU UwU UwU UwU UwU UwU UwU UwU UwU").decode(), 200
+          return self.encryption.encrypt('error').decode(), 200
         if not "uuid" in decrypted_data:
             return self.encryption.encrypt(json.dumps({"error":"task_id is required"})).decode(), 400
         if not "key" in decrypted_data:
             return self.encryption.encrypt(json.dumps({"error":"key is required"})).decode(), 400
         key_check = self.db.check_key(decrypted_data['key'], decrypted_data['uuid'])
         if key_check['success'] == True:
-          return self.encryption.encrypt('{"data":200}').decode(), 200
+          return self.encryption.encrypt('ok').decode(), 200
         else:
-          return self.encryption.encrypt('{"data":400}').decode(), 200
+          return self.encryption.encrypt('invalid').decode(), 200
 
     def run(self) -> None:
         

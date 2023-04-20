@@ -51,11 +51,20 @@ class Database:
                 sqlalchemy.Column('discord_id', sqlalchemy.String), 
                 sqlalchemy.Column('hwid', sqlalchemy.String),
                 sqlalchemy.Column('hwid_limit', sqlalchemy.Integer),
+                sqlalchemy.Column('license', sqlalchemy.String(64)),
             )
             self.metadata.create_all(self.engine)
             self.log_info(": Table created")
         else:
             self.log_info(": Database loaded")
+
+    def check_license_structure(self, license):
+        if not license.startswith("SAVE_ME!!!_"):
+            return False
+        if len(license) != 64:
+            return False
+        else:
+            return bool(re.match("^[A-Za-z0-9]*$", license.split("SAVE_ME!!!_")[1]))
 
     def check_hash_structure(self, hash):
         if len(hash) != 64:
@@ -63,19 +72,27 @@ class Database:
         else:
             return bool(re.match("^[A-Za-z0-9]*$", hash))
 
-    def check_key_structure(self, hash):
-        if len(hash) != 32:
+    def check_key_structure(self, key):
+        if len(key) != 32:
             return False
         else:
             return bool(re.match("^[A-Za-z0-9]*$", hash))
 
 
-    def get_key(self, key: str):
+    def get_key(self, key: str = None, discord_id: str = None, license: str = None):
         try:
             
             users = self.metadata.tables['users']
-            query = sqlalchemy.select(users).where(users.c.key == key)
+
+            if key != None:
+                query = sqlalchemy.select(users).where(users.c.key == key)
+            elif discord_id != None:
+                query = sqlalchemy.select(users).where(users.c.discord_id == discord_id)
+            elif license != None:
+                query = sqlalchemy.select(users).where(users.c.license == license)
+
             result = self.econn.execute(query).fetchall()
+
             if result:
                 return result
             else:
@@ -100,24 +117,49 @@ class Database:
             
             users = self.metadata.tables['users']
 
+            
+
             new_key = ''.join(random.choice(string.ascii_uppercase + string.ascii_lowercase +string.digits) for _ in range(32))
-                          
+            new_license = 'SAVE_ME!!!_' + ''.join(random.choice(string.ascii_uppercase + string.ascii_lowercase +string.digits) for _ in range(53))
             query = (
                 sqlalchemy.insert(users).
                 values(key = new_key, 
                        discord_id = discord_id,
                        date = date,
                        hwid = json.dumps([]),
-                       hwid_limit = hwid_limit
+                       hwid_limit = hwid_limit,
+                       license = new_license,
                        )
                 )
             self.econn.execute(query)
             self.econn.commit()
-            return new_key
+            return new_license
+
+    def change_owner(self, license: str, discord_id: str):
+
+        if self.check_license_structure(license) == False:
+            return {"success": False, "message":"invalid license"}
+
+        key_data = self.get_key(license=license)
+        
+        if key_data == False:
+            return {"success": False, "message":"invalid license"}
+        
+        try:
+            users = self.metadata.tables['users']
+            query = sqlalchemy.update(users).where(users.c.license == license).values(discord_id = discord_id)
+            self.econn.execute(query)
+            self.econn.commit()
+
+            return {"success": True, "message":"owner changed to {}".format(discord_id)}
+        
+        except Exception as e:
+            self.log_error(f": {e}")
+
 
     def add_hwid(self, key: str, new_hwid: str) -> None:
 
-        if self.check_Hash(new_hwid) == False:
+        if self.check_hash_structure(new_hwid) == False:
             return {"success": False, "message":"invalid hwid"}
 
         key_data = self.get_key(key)
@@ -145,9 +187,13 @@ class Database:
         else:
             return {"success": False, "message":"hwid limit {}/{}".format(len(old_hwid_list), hwid_limit)}
 
-    def reset_hwid(self, key: str) -> None:
-
-        key_data = self.get_key(key)
+    def reset_hwid(self, key: str = None, discord_id: str = None) -> None:
+        
+        print(discord_id)
+        if key != None:
+            key_data = self.get_key(key=key)
+        else:
+            key_data = self.get_key(discord_id=discord_id)
         
         if key_data == False:
             return {"success": False, "message":"invalid key"}
@@ -156,11 +202,40 @@ class Database:
         
         try:
             users = self.metadata.tables['users']
-            query = sqlalchemy.update(users).where(users.c.key == key).values(hwid = "[]")
+            if key != None:
+                query = sqlalchemy.update(users).where(users.c.key == key).values(hwid = "[]")
+            else:
+                query = sqlalchemy.update(users).where(users.c.discord_id == discord_id).values(hwid = "[]")
             self.econn.execute(query)
             self.econn.commit()
 
             return {"success": True, "message":"0/{}".format(str(hwid_limit))}
+        
+        except Exception as e:
+            self.log_error(f": {e}")
+
+    def reset_key(self, key: str = None, discord_id: str = None) -> None:
+
+        if key != None:
+            key_data = self.get_key(key=key)
+        else:
+            key_data = self.get_key(discord_id=discord_id)
+        
+        if key_data == False:
+            return {"success": False, "message":"invalid key"}
+        
+        try:
+            new_key = ''.join(random.choice(string.ascii_uppercase + string.ascii_lowercase +string.digits) for _ in range(32))
+
+            users = self.metadata.tables['users']
+            if key != None:
+                query = sqlalchemy.update(users).where(users.c.key == key).values(key = new_key)
+            else:
+                query = sqlalchemy.update(users).where(users.c.discord_id == discord_id).values(key = new_key)
+            self.econn.execute(query)
+            self.econn.commit()
+
+            return {"success": True, "message":new_key}
         
         except Exception as e:
             self.log_error(f": {e}")
